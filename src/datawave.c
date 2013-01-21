@@ -8,6 +8,7 @@
 
 #include <pthread.h>
 #include <jack/jack.h>
+#include <complex.h>
 #include <fftw3.h>
 
 #define N 65536 // Buffer
@@ -120,11 +121,9 @@ int exec(jack_nframes_t n, void * arg)
 	/* Compute output frequency domain (convolution) */
 	for(i = 0; i < N/2+1; i++) {
 		/* Convolution */
-		out_freq[i][0] = in_freq[i][0] * impulse_freq[i][0] - in_freq[i][1] * impulse_freq[i][1];
-		out_freq[i][1] = in_freq[i][0] * impulse_freq[i][1] + in_freq[i][1] * impulse_freq[i][0];;
+		out_freq[i] = in_freq[i] * impulse_freq[i];
 		/* Cross-correlation */
-		//out_freq[i][0] = in_freq[i][0] * impulse_freq[i][0] + in_freq[i][1] * impulse_freq[i][1];
-		//out_freq[i][1] = in_freq[i][0] * impulse_freq[i][1] - in_freq[i][1] * impulse_freq[i][0];;
+		//out_freq[i] = conjf(in_freq[i]) * impulse_freq[i];
 	}
 
 	/* Update output time domain */
