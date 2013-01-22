@@ -16,11 +16,13 @@ jack_client_t * client;
 jack_port_t * input_port;
 jack_port_t * output_port;
 
+#include <math.h>
 #include <complex.h>
 #include <fftw3.h>
 
-#define N 65536 // Buffer
-#define G 1.0f // Gain
+#define N 65536 // Buffer size
+#define G_IN 1.0f // Gain input
+#define G_OUT 1.0f // Gain output
 
 /* Current phase inside buffers */
 int phase;

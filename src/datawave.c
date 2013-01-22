@@ -15,7 +15,7 @@ void init(void * arg)
 	/* Import system wisdom */
 	if(!fftwf_import_system_wisdom())
 		warnx("no fftwf wisdom found, please run:\n"
-		      "# fftwf-wisdom rof%d rob%d -o /etc/fftw/wisdomf", N, N);
+		      "# fftwf-wisdom rif%d rib%d rof%d rob%d -o /etc/fftw/wisdomf", N, N, N, N);
 
 	/* Init input sound buffers and transform */
 	in_sound_time = fftwf_alloc_real(N);
@@ -48,15 +48,23 @@ void init(void * arg)
 	fft_out_sound = fftwf_plan_dft_c2r_1d(N, out_sound_freq, out_sound_time, FFTW_WISDOM_ONLY | FFTW_PATIENT);
 
 	/* Pre-compute impulse and outpulse frequency domain */
+	pulse(impulse_time);
 	pulse(outpulse_time);
-	normalize(outpulse_time);
+	fftwf_execute(fft_impulse);
 	fftwf_execute(fft_outpulse);
-	for(int i = 0; i < N/2+1; i++)
-		impulse_freq[i] = 1/outpulse_freq[i];
 
 	for(int i = 0; i < N/2+1; i++) {
-		outpulse_freq[i] *= G/N;
-		impulse_freq[i] *= G/N;
+		fftwf_complex impulse = impulse_freq[i];
+		fftwf_complex outpulse = outpulse_freq[i];
+		impulse_freq[i] = impulse / outpulse * G_IN/N;
+		outpulse_freq[i] = outpulse / impulse * G_OUT/N;
+		if(rand() % 2) {
+			impulse_freq[i] = G_IN/sqrtf(N);
+			outpulse_freq[i] = G_IN/sqrtf(N);
+		} else {
+			impulse_freq[i] = -G_IN/sqrtf(N);
+			outpulse_freq[i] = -G_IN/sqrtf(N);
+		}
 	}
 }
 
@@ -138,8 +146,12 @@ int exec(jack_nframes_t n, void * arg)
 	for(i = 0; i < N/2+1; i++)
 		out_sound_freq[i] = out_data_freq[i] * outpulse_freq[i];
 
+	memcpy(out_sound_freq, outpulse_freq, sizeof(fftwf_complex) * (N/2+1));
+
 	/* Update output sound time domain */
 	fftwf_execute(fft_out_sound);
+
+	//memcpy(out_sound_time, outpulse_time, sizeof(float) * N);
 
 	return 0;
 }
