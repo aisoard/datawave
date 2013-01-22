@@ -8,11 +8,14 @@
 
 #include <pthread.h>
 #include <jack/jack.h>
+
+#include <math.h>
 #include <complex.h>
 #include <fftw3.h>
 
 #define N 65536 // Buffer
-#define G 1 // Gain
+#define G 1.0f // Gain
+#define TAU 6.28318530717958647692f // Math standard constant
 
 jack_client_t * client;
 jack_port_t * input_port_front;
@@ -23,68 +26,153 @@ jack_port_t * output_port_right;
 /* Current phase inside buffers */
 int phase;
 
-/* Input data: time and frequency domain */
-float * in_time;
-fftwf_complex * in_freq;
-/* Input data: time to frequency domain transform */
-fftwf_plan fft_in;
+/* Input sound: time and frequency domain */
+float * in_sound_time;
+fftwf_complex * in_sound_freq;
+fftwf_plan fft_in_sound;
 
-/* Output data: time and frequency domain */
-float * out_time;
-fftwf_complex * out_freq;
-/* Output data: frequency to time domain transform */
-fftwf_plan fft_out;
-
-/* Impulse data: time and frequency domain */
+/* Impulse sound to data: time and frequency domain */
 float * impulse_time;
 fftwf_complex * impulse_freq;
-/* Impulse data: time to frequency transform */
 fftwf_plan fft_impulse;
+
+/* Input data: time and frequency domain */
+fftwf_complex * in_data_freq;
+float * in_data_time;
+fftwf_plan fft_in_data;
+
+/* Output data: time and frequency domain */
+float * out_data_time;
+fftwf_complex * out_data_freq;
+fftwf_plan fft_out_data;
+
+/* Outpulse data to sound: time and frequency domain */
+float * outpulse_time;
+fftwf_complex * outpulse_freq;
+fftwf_plan fft_outpulse;
+
+/* Output sound: time and frequency domain */
+fftwf_complex * out_sound_freq;
+float * out_sound_time;
+fftwf_plan fft_out_sound;
+
+void normalize(float * data_time)
+{
+	int i;
+
+	float temp;
+	float temp2;
+	float max2 = 0;
+
+	for(i = 0; i < N; i++) {
+		temp = data_time[i];
+		temp2 = temp * temp;
+		max2 = max2 > temp2 ? max2 : temp2;
+	}
+
+	float factor = 1 / sqrt(max2);
+
+	factor = factor;
+
+	for(i = 0; i < N; i++)
+		data_time[i] *= factor;
+}
+
+float gauss(float x)
+{
+	return expf(- (x*x) / (4.0f*N*N));
+}
+
+float pulse(float x)
+{
+	return (((float) rand())/((float) RAND_MAX)*2-1)*gauss(x);
+}
+
+void analyse(void)
+{
+	//memcpy(out_data_time, in_data_time, sizeof(float) * N);
+	out_data_time[0] = 1.0f;
+}
 
 void init(void * arg)
 {
 	phase = 0;
 
-	/* Init input buffers and transform */
-	in_time = fftwf_alloc_real(N);
-	in_freq = fftwf_alloc_complex(N/2+1);
-	fft_in = fftwf_plan_dft_r2c_1d(N, in_time, in_freq, FFTW_MEASURE);
-
-	/* Init output buffers and transform */
-	out_time = fftwf_alloc_real(N);
-	out_freq = fftwf_alloc_complex(N/2+1);
-	fft_out = fftwf_plan_dft_c2r_1d(N, out_freq, out_time, FFTW_MEASURE);
+	/* Init input sound buffers and transform */
+	in_sound_time = fftwf_alloc_real(N);
+	in_sound_freq = fftwf_alloc_complex(N/2+1);
+	fft_in_sound = fftwf_plan_dft_r2c_1d(N, in_sound_time, in_sound_freq, FFTW_MEASURE);
 
 	/* Init impulse buffers and transform */
 	impulse_time = fftwf_alloc_real(N);
 	impulse_freq = fftwf_alloc_complex(N/2+1);
 	fft_impulse = fftwf_plan_dft_r2c_1d(N, impulse_time, impulse_freq, FFTW_MEASURE);
 
-	/* Pre-compute impulse transform
-	 * As this is constant the whole time, lets pre-compute it.
-	 * We put the gain (G) and the renormalization (1/N) factors here to improve performance.
-	 */
-	memset(impulse_time, 0, sizeof(float) * N);
-	impulse_time[0] = G * 1.0f / N;
-	fftwf_execute(fft_impulse);
+	/* Init input data buffers and transform */
+	in_data_freq = fftwf_alloc_complex(N/2+1);
+	in_data_time = fftwf_alloc_real(N);
+	fft_in_data = fftwf_plan_dft_c2r_1d(N, in_data_freq, in_data_time, FFTW_MEASURE);
+
+	/* Init output data buffers and transform */
+	out_data_time = fftwf_alloc_real(N);
+	out_data_freq = fftwf_alloc_complex(N/2+1);
+	fft_out_data = fftwf_plan_dft_r2c_1d(N, out_data_time, out_data_freq, FFTW_MEASURE);
+
+	/* Init outpulse buffers and transform */
+	outpulse_time = fftwf_alloc_real(N);
+	outpulse_freq = fftwf_alloc_complex(N/2+1);
+	fft_outpulse = fftwf_plan_dft_r2c_1d(N, outpulse_time, outpulse_freq, FFTW_MEASURE);
+
+	/* Init output sound buffers and transform */
+	out_sound_freq = fftwf_alloc_complex(N/2+1);
+	out_sound_time = fftwf_alloc_real(N);
+	fft_out_sound = fftwf_plan_dft_c2r_1d(N, out_sound_freq, out_sound_time, FFTW_MEASURE);
+
+	/* Pre-compute impulse and outpulse frequency domain */
+	for(int i = 0; i < N; i++)
+		outpulse_time[i] = pulse(i) + pulse(i-N);
+	normalize(outpulse_time);
+	fftwf_execute(fft_outpulse);
+	for(int i = 0; i < N/2+1; i++)
+		impulse_freq[i] = 1/outpulse_freq[i];
+
+	for(int i = 0; i < N/2+1; i++) {
+		outpulse_freq[i] *= G/N;
+		impulse_freq[i] *= G/N;
+	}
 }
 
 void fini(void * arg)
 {
-	/* Free input buffers and transform */
-	fftwf_free(in_time);
-	fftwf_free(in_freq);
-	fftwf_destroy_plan(fft_in);
-
-	/* Free output buffers and transform */
-	fftwf_free(out_time);
-	fftwf_free(out_freq);
-	fftwf_destroy_plan(fft_out);
+	/* Free input sound buffers and transform */
+	fftwf_destroy_plan(fft_in_sound);
+	fftwf_free(in_sound_time);
+	fftwf_free(in_sound_freq);
 
 	/* Free impulse buffers and transform */
+	fftwf_destroy_plan(fft_impulse);
 	fftwf_free(impulse_time);
 	fftwf_free(impulse_freq);
-	fftwf_destroy_plan(fft_impulse);
+
+	/* Free input data buffers and transform */
+	fftwf_destroy_plan(fft_in_data);
+	fftwf_free(in_data_freq);
+	fftwf_free(in_data_time);
+
+	/* Free output data buffers and transform */
+	fftwf_destroy_plan(fft_out_data);
+	fftwf_free(out_data_time);
+	fftwf_free(out_data_freq);
+
+	/* Free outpulse buffers and transform */
+	fftwf_destroy_plan(fft_outpulse);
+	fftwf_free(outpulse_time);
+	fftwf_free(outpulse_freq);
+
+	/* Free output sound buffers and transform */
+	fftwf_destroy_plan(fft_out_sound);
+	fftwf_free(out_sound_freq);
+	fftwf_free(out_sound_time);
 
 	exit(0);
 }
@@ -106,28 +194,39 @@ int exec(jack_nframes_t n, void * arg)
 		int phase_in = phase + i;
 		int phase_out = (phase + i + N/2) % N;
 
-		in_time[phase_in] = (in_front[i] + in_back[i])/2;
-		out_left[i] = out_time[phase_out];
-		out_right[i] = out_time[phase_out];
+		in_sound_time[phase_in] = (in_front[i] + in_back[i])/2;
+		out_left[i] = out_sound_time[phase_out];
+		out_right[i] = out_sound_time[phase_out];
 	}
 
 	/* Update phase */
 	phase += n;
 	phase %= N;
 
-	/* Update input frequency domain */
-	fftwf_execute(fft_in);
+	/* Update input sound frequency domain */
+	fftwf_execute(fft_in_sound);
 
-	/* Compute output frequency domain (convolution) */
-	for(i = 0; i < N/2+1; i++) {
-		/* Convolution */
-		out_freq[i] = in_freq[i] * impulse_freq[i];
-		/* Cross-correlation */
-		//out_freq[i] = conjf(in_freq[i]) * impulse_freq[i];
-	}
+	/* Compute input data frequency domain (convolution) */
+	for(i = 0; i < N/2+1; i++)
+		in_data_freq[i] = in_sound_freq[i] * impulse_freq[i];
 
-	/* Update output time domain */
-	fftwf_execute(fft_out);
+	/* Update input data time domain */
+	fftwf_execute(fft_in_data);
+
+	/* Analyse in data and generate out data */
+	analyse();
+
+	/* Update output data frequency domain */
+	fftwf_execute(fft_out_data);
+
+	/* Compute output sound frequency domain (convolution) */
+	for(i = 0; i < N/2+1; i++)
+		out_sound_freq[i] = out_data_freq[i] * outpulse_freq[i];
+
+	/* Update output sound time domain */
+	fftwf_execute(fft_out_sound);
+
+	//memcpy(out_sound_time, in_data_time, sizeof(float) * N); // FIXME debug
 
 	return 0;
 }
@@ -176,7 +275,8 @@ int main(int argc, char * argv[])
 	}
 
 	/* Register callbacks */
-	jack_set_thread_init_callback(client, init, NULL);
+	init(NULL);
+	//jack_set_thread_init_callback(client, init, NULL);
 	jack_set_process_callback(client, exec, NULL);
 	jack_on_shutdown(client, fini, NULL);
 
