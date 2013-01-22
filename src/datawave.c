@@ -80,7 +80,7 @@ void normalize(float * data_time)
 
 float gauss(float x)
 {
-	return expf(- (x*x) / (4.0f*N*N));
+	return expf(- (x*x) / (64*64));
 }
 
 float pulse(float x)
@@ -91,6 +91,7 @@ float pulse(float x)
 void analyse(void)
 {
 	//memcpy(out_data_time, in_data_time, sizeof(float) * N);
+	memset(out_data_time, 0, sizeof(float) * N);
 	out_data_time[0] = 1.0f;
 }
 
