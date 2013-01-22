@@ -23,6 +23,7 @@ jack_port_t * output_port;
 #define N 65536 // Buffer size
 #define G_IN 1.0f // Gain input
 #define G_OUT 1.0f // Gain output
+#define TAU 6.28318530717958647692f
 
 /* Current phase inside buffers */
 int phase;
@@ -35,7 +36,8 @@ fftwf_plan fft_in_sound;
 /* Impulse sound to data: time and frequency domain */
 float * impulse_time;
 fftwf_complex * impulse_freq;
-fftwf_plan fft_impulse;
+fftwf_plan fft_impulse_t2f;
+fftwf_plan fft_impulse_f2t;
 
 /* Input data: time and frequency domain */
 fftwf_complex * in_data_freq;
@@ -50,7 +52,8 @@ fftwf_plan fft_out_data;
 /* Outpulse data to sound: time and frequency domain */
 float * outpulse_time;
 fftwf_complex * outpulse_freq;
-fftwf_plan fft_outpulse;
+fftwf_plan fft_outpulse_t2f;
+fftwf_plan fft_outpulse_f2t;
 
 /* Output sound: time and frequency domain */
 fftwf_complex * out_sound_freq;

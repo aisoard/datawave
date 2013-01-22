@@ -1,9 +1,5 @@
 #include "common.h"
 
-#include <math.h>
-
-#define TAU 6.28318530717958647692f
-
 /* Sinus function of x with period of l */
 float sine(float l, float x)
 {
