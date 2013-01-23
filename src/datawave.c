@@ -3,11 +3,8 @@
 /* Read input data and write output data */
 void analyse(float * in_data_time, float * out_data_time)
 {
-	for(int i = 0; i < N; i++) {
-		float in = in_data_time[i];
-		float out = in < 1.0f ? in * in : 1.0f;
-		out_data_time[i] = out;
-	}
+	for(int i = 0; i < N; i++)
+		out_data_time[i] = filter(0.9375f, 16.0f, in_data_time[i]);
 
 	out_data_time[0] = 1.0f;
 }
@@ -49,8 +46,11 @@ void init(void * arg)
 
 	/* Pre-compute impulse and outpulse frequency domain */
 	pulse(impulse_time);
-	amplify(impulse_time, G/N);
 	fftwf_execute(fft_impulse_t2f);
+	for(int i = 0; i < N/2+1; i++) {
+		fftwf_complex impulse = impulse_freq[i];
+		impulse_freq[i] = impulse/cabsf(impulse);
+	}
 }
 
 void fini(void * arg)
@@ -94,12 +94,12 @@ int exec(jack_nframes_t n, void * arg)
 	jack_default_audio_sample_t * out_left = (jack_default_audio_sample_t *) jack_port_get_buffer(output_port_left, n);
 	jack_default_audio_sample_t * out_right = (jack_default_audio_sample_t *) jack_port_get_buffer(output_port_right, n);
 
-	/* Retrive input data at the current phase and send output data at the opposed phase
+	/* Copy the input data at the current phase and send output data at the opposed phase
 	 * Suppose N multiple of n
 	 */
 	for(i = 0; i < n; i++) {
 		int phase_in = phase + i;
-		int phase_out = (phase + i + N/2) % N;
+		int phase_out = (phase + i + N/2 + (-n)/2) % N;
 
 		in_sound_time[phase_in] = (in_left[i] + in_right[i]) / 2;
 		out_left[i] = out_sound_time[phase_out];
@@ -113,9 +113,9 @@ int exec(jack_nframes_t n, void * arg)
 	/* Update input sound frequency domain */
 	fftwf_execute(fft_in_sound);
 
-	/* Compute input data frequency domain (convolution) */
+	/* Compute input data frequency domain (cross-correlation with anti-impulse) */
 	for(i = 0; i < N/2+1; i++)
-		in_data_freq[i] = conjf(in_sound_freq[i]) * impulse_freq[i];
+		in_data_freq[i] = conjf(in_sound_freq[i]) * impulse_freq[i] * G_IN/N; /* FIXME Auto-correlation normalization */
 
 	/* Update input data time domain */
 	fftwf_execute(fft_in_data);
@@ -128,7 +128,7 @@ int exec(jack_nframes_t n, void * arg)
 
 	/* Compute output sound frequency domain (convolution) */
 	for(i = 0; i < N/2+1; i++)
-		out_sound_freq[i] = out_data_freq[i] * impulse_freq[i];
+		out_sound_freq[i] = out_data_freq[i] * impulse_freq[i] * G_OUT/N;
 
 	/* Update output sound time domain */
 	fftwf_execute(fft_out_sound);

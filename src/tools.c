@@ -12,6 +12,15 @@ float gauss(float a, float x)
 	return expf(- (x*x) / (a*a));
 }
 
+/* Amplify near -1 and 1 values, reduce near 0 values */
+float filter(float s, float p, float x)
+{
+	if(x*x < s*s)
+		return x/p;
+	else
+		return x > 0.0f ? 1.0f + (x-1.0f)/p : -1.0f + (x+1.0f)/p;
+}
+
 /* Noise procedure with amplitude between min and max */
 float noise(float min, float max)
 {

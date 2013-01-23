@@ -23,7 +23,8 @@ jack_port_t * output_port_right;
 #include <fftw3.h>
 
 #define N 65536 // Buffer size
-#define G 1.0f // Impulse gain
+#define G_IN 1.0f // Input gain
+#define G_OUT 1.0f // Output gain
 #define TAU 6.28318530717958647692f
 
 /* Current phase inside buffers */
@@ -61,6 +62,7 @@ int exec(jack_nframes_t n, void * arg);
 void fini(void * arg);
 
 /* Math tools */
+float filter(float s, float p, float x);
 float sine(float l, float x);
 float gauss(float a, float x);
 float noise(float min, float max);
