@@ -12,74 +12,76 @@ void analyse(float * in_data_time, float * out_data_time)
 void init(void * arg)
 {
 	phase = 0;
+	FILE * wisdom = NULL;
 
-	/* Import system wisdom */
-	if(!fftwf_import_system_wisdom())
-		warnx("no fftwf wisdom found, please run:\n"
-		      "# fftwf-wisdom -o /etc/fftw/wisdomf rif%d rib%d rof%d rob%d", N, N, N, N);
+	/* Import wisdom */
+	wisdom = fopen("fftwf_wisdom", "r");
 
-	/* Init input sound buffers and transform */
+	if(wisdom == NULL) {
+		warn("Cannot open `fftwf_wisdom' in read mode");
+		warnx("No wisdom found. Wisdom will be created and saved for next time, be patient...");
+	} else {
+		fftwf_import_wisdom_from_file(wisdom);
+		fclose(wisdom);
+	}
+
+	/* Init wave buffers and transforms */
+	wave = fftwf_malloc(MAX(sizeof(float) * N, sizeof(fftwf_complex) * (N/2+1)));
+	wave_time = (float *) wave;
+	wave_freq = (fftwf_complex *) wave;
+	fft_wave_time_to_freq = fftwf_plan_dft_r2c_1d(N, wave_time, wave_freq, FFTW_PATIENT | FFTW_DESTROY_INPUT);
+	fft_wave_freq_to_time = fftwf_plan_dft_c2r_1d(N, wave_freq, wave_time, FFTW_PATIENT | FFTW_DESTROY_INPUT);
+
+	/* Init input and output buffers */
 	in_sound_time = fftwf_alloc_real(N);
-	in_sound_freq = fftwf_alloc_complex(N/2+1);
-	fft_in_sound = fftwf_plan_dft_r2c_1d(N, in_sound_time, in_sound_freq, FFTW_WISDOM_ONLY | FFTW_PATIENT);
-
-	/* Init input data buffers and transform */
-	in_data_freq = fftwf_alloc_complex(N/2+1);
 	in_data_time = fftwf_alloc_real(N);
-	fft_in_data = fftwf_plan_dft_c2r_1d(N, in_data_freq, in_data_time, FFTW_WISDOM_ONLY | FFTW_PATIENT);
-
-	/* Init output data buffers and transform */
 	out_data_time = fftwf_alloc_real(N);
-	out_data_freq = fftwf_alloc_complex(N/2+1);
-	fft_out_data = fftwf_plan_dft_r2c_1d(N, out_data_time, out_data_freq, FFTW_WISDOM_ONLY | FFTW_PATIENT);
-
-	/* Init output sound buffers and transform */
-	out_sound_freq = fftwf_alloc_complex(N/2+1);
 	out_sound_time = fftwf_alloc_real(N);
-	fft_out_sound = fftwf_plan_dft_c2r_1d(N, out_sound_freq, out_sound_time, FFTW_WISDOM_ONLY | FFTW_PATIENT);
 
 	/* Init impulse buffers and transform */
 	impulse_time = fftwf_alloc_real(N);
 	impulse_freq = fftwf_alloc_complex(N/2+1);
-	fft_impulse_t2f = fftwf_plan_dft_r2c_1d(N, impulse_time, impulse_freq, FFTW_WISDOM_ONLY | FFTW_PATIENT);
-	fft_impulse_f2t = fftwf_plan_dft_c2r_1d(N, impulse_freq, impulse_time, FFTW_WISDOM_ONLY | FFTW_PATIENT);
+	impulse_auto = fftwf_alloc_real(N);
+	fft_impulse_time_to_freq = fftwf_plan_dft_r2c_1d(N, impulse_time, impulse_freq, FFTW_PATIENT | FFTW_DESTROY_INPUT);
+	fft_impulse_freq_to_time = fftwf_plan_dft_c2r_1d(N, impulse_freq, impulse_time, FFTW_PATIENT | FFTW_DESTROY_INPUT);
 
-	/* Pre-compute impulse and outpulse frequency domain */
-	pulse(impulse_time);
-	fftwf_execute(fft_impulse_t2f);
-	for(int i = 0; i < N/2+1; i++) {
-		fftwf_complex impulse = impulse_freq[i];
-		impulse_freq[i] = impulse/cabsf(impulse);
+	/* Export wisdom */
+	wisdom = fopen("fftwf_wisdom", "w");
+
+	if(wisdom == NULL) {
+		warn("Cannot open or create `fftwf_wisdom' in write mode");
+		warnx("No wisdom saved");
+	} else {
+		fftwf_export_wisdom_to_file(wisdom);
+		fclose(wisdom);
 	}
+
+	/* Pre-compute impulse time, frequency and autocorrelation domain */
+	srand(time(NULL));
+	pulse(impulse_time);
+	fftwf_execute(fft_impulse_time_to_freq);
+	autocorrelation(impulse_time, impulse_auto);
 }
 
 void fini(void * arg)
 {
-	/* Free input sound buffers and transform */
-	fftwf_destroy_plan(fft_in_sound);
+	/* Free input and output buffers */
 	fftwf_free(in_sound_time);
-	fftwf_free(in_sound_freq);
-
-	/* Free input data buffers and transform */
-	fftwf_destroy_plan(fft_in_data);
-	fftwf_free(in_data_freq);
 	fftwf_free(in_data_time);
-
-	/* Free output data buffers and transform */
-	fftwf_destroy_plan(fft_out_data);
 	fftwf_free(out_data_time);
-	fftwf_free(out_data_freq);
-
-	/* Free output sound buffers and transform */
-	fftwf_destroy_plan(fft_out_sound);
-	fftwf_free(out_sound_freq);
 	fftwf_free(out_sound_time);
 
 	/* Free impulse buffers and transform */
-	fftwf_destroy_plan(fft_impulse_t2f);
-	fftwf_destroy_plan(fft_impulse_f2t);
+	fftwf_destroy_plan(fft_impulse_time_to_freq);
+	fftwf_destroy_plan(fft_impulse_freq_to_time);
 	fftwf_free(impulse_time);
 	fftwf_free(impulse_freq);
+	fftwf_free(impulse_auto);
+
+	/* Free wave buffers and transforms */
+	fftwf_destroy_plan(fft_wave_time_to_freq);
+	fftwf_destroy_plan(fft_wave_freq_to_time);
+	fftwf_free(wave);
 
 	exit(0);
 }
@@ -99,7 +101,7 @@ int exec(jack_nframes_t n, void * arg)
 	 */
 	for(i = 0; i < n; i++) {
 		int phase_in = phase + i;
-		int phase_out = (phase + i + N/2 + (-n)/2) % N;
+		int phase_out = (phase + i + N/2) % N;
 
 		in_sound_time[phase_in] = (in_left[i] + in_right[i]) / 2;
 		out_left[i] = out_sound_time[phase_out];
@@ -110,28 +112,20 @@ int exec(jack_nframes_t n, void * arg)
 	phase += n;
 	phase %= N;
 
-	/* Update input sound frequency domain */
-	fftwf_execute(fft_in_sound);
+	/* Generate input data from input sound by correlation against impulse */
+	correlation(in_sound_time, impulse_freq, in_data_time);
 
-	/* Compute input data frequency domain (cross-correlation with anti-impulse) */
-	for(i = 0; i < N/2+1; i++)
-		in_data_freq[i] = conjf(in_sound_freq[i]) * impulse_freq[i] * G_IN/N; /* FIXME Auto-correlation normalization */
+	/* Amplify input data and correct autocorrelation */
+	amplify(in_data_time, G_IN / impulse_auto[0]);
 
-	/* Update input data time domain */
-	fftwf_execute(fft_in_data);
-
-	/* Analyse in data and generate out data */
+	/* Analyse input data and generate output data */
 	analyse(in_data_time, out_data_time);
 
-	/* Update output data frequency domain */
-	fftwf_execute(fft_out_data);
+	/* Amplify output data */
+	amplify(out_data_time, G_OUT);
 
-	/* Compute output sound frequency domain (convolution) */
-	for(i = 0; i < N/2+1; i++)
-		out_sound_freq[i] = out_data_freq[i] * impulse_freq[i] * G_OUT/N;
-
-	/* Update output sound time domain */
-	fftwf_execute(fft_out_sound);
+	/* Generate output sound from output data by convolution against impulse */
+	convolution(out_data_time, impulse_freq, out_sound_time);
 
 	return 0;
 }

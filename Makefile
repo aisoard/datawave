@@ -28,4 +28,4 @@ clean:
 	rm -f bin/main.o bin/tools.o bin/datawave.o
 
 reset: clean
-	rm datawave
+	rm datawave fftwf_wisdom

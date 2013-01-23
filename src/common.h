@@ -18,6 +18,7 @@ jack_port_t * input_port_right;
 jack_port_t * output_port_left;
 jack_port_t * output_port_right;
 
+#include <time.h>
 #include <math.h>
 #include <complex.h>
 #include <fftw3.h>
@@ -27,34 +28,31 @@ jack_port_t * output_port_right;
 #define G_OUT 1.0f // Output gain
 #define TAU 6.28318530717958647692f
 
+#define MAX(x,y) (x > y ? x : y)
+
 /* Current phase inside buffers */
 int phase;
 
-/* Input sound: time and frequency domain */
+/* Tools: time/frequency domain */
+void * wave;
+float * wave_time;
+fftwf_complex * wave_freq;
+fftwf_plan fft_wave_time_to_freq;
+fftwf_plan fft_wave_freq_to_time;
+
+/* Input and Output: sound and data time domain */
 float * in_sound_time;
-fftwf_complex * in_sound_freq;
-fftwf_plan fft_in_sound;
-
-/* Input data: time and frequency domain */
-fftwf_complex * in_data_freq;
 float * in_data_time;
-fftwf_plan fft_in_data;
-
-/* Output data: time and frequency domain */
 float * out_data_time;
-fftwf_complex * out_data_freq;
-fftwf_plan fft_out_data;
-
-/* Output sound: time and frequency domain */
-fftwf_complex * out_sound_freq;
 float * out_sound_time;
-fftwf_plan fft_out_sound;
+fftwf_plan fft_out_sound_from_wave;
 
-/* Impulse sound: time and frequency domain */
+/* Impulse: time, frequency and autocorrelation domain */
 float * impulse_time;
 fftwf_complex * impulse_freq;
-fftwf_plan fft_impulse_t2f;
-fftwf_plan fft_impulse_f2t;
+float * impulse_auto;
+fftwf_plan fft_impulse_time_to_freq;
+fftwf_plan fft_impulse_freq_to_time;
 
 /* Client callbacks */
 void init(void * arg);
@@ -66,6 +64,9 @@ float filter(float s, float p, float x);
 float sine(float l, float x);
 float gauss(float a, float x);
 float noise(float min, float max);
+void convolution(float * input_time, fftwf_complex * kernel_freq, float * output_time);
+void correlation(float * input_time, fftwf_complex * kernel_freq, float * output_time);
+void autocorrelation(float * data_time, float * data_auto);
 void pulse(float * data_time);
 void amplify(float * data_time, float a);
 void normalize(float * data_time);
