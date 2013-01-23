@@ -13,16 +13,17 @@
 #include <jack/jack.h>
 
 jack_client_t * client;
-jack_port_t * input_port;
-jack_port_t * output_port;
+jack_port_t * input_port_left;
+jack_port_t * input_port_right;
+jack_port_t * output_port_left;
+jack_port_t * output_port_right;
 
 #include <math.h>
 #include <complex.h>
 #include <fftw3.h>
 
 #define N 65536 // Buffer size
-#define G_IN 1.0f // Gain input
-#define G_OUT 1.0f // Gain output
+#define G 1.0f // Impulse gain
 #define TAU 6.28318530717958647692f
 
 /* Current phase inside buffers */
@@ -32,12 +33,6 @@ int phase;
 float * in_sound_time;
 fftwf_complex * in_sound_freq;
 fftwf_plan fft_in_sound;
-
-/* Impulse sound to data: time and frequency domain */
-float * impulse_time;
-fftwf_complex * impulse_freq;
-fftwf_plan fft_impulse_t2f;
-fftwf_plan fft_impulse_f2t;
 
 /* Input data: time and frequency domain */
 fftwf_complex * in_data_freq;
@@ -49,16 +44,16 @@ float * out_data_time;
 fftwf_complex * out_data_freq;
 fftwf_plan fft_out_data;
 
-/* Outpulse data to sound: time and frequency domain */
-float * outpulse_time;
-fftwf_complex * outpulse_freq;
-fftwf_plan fft_outpulse_t2f;
-fftwf_plan fft_outpulse_f2t;
-
 /* Output sound: time and frequency domain */
 fftwf_complex * out_sound_freq;
 float * out_sound_time;
 fftwf_plan fft_out_sound;
+
+/* Impulse sound: time and frequency domain */
+float * impulse_time;
+fftwf_complex * impulse_freq;
+fftwf_plan fft_impulse_t2f;
+fftwf_plan fft_impulse_f2t;
 
 /* Client callbacks */
 void init(void * arg);

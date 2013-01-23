@@ -23,7 +23,7 @@ void pulse(float * data_time)
 {
 	for(int i = 0; i < N; i++) {
 		float x = i < N/2 ? i : i-N;
-		outpulse_time[i] = noise(-1.0f, 1.0f) * gauss(64.0f, x);
+		data_time[i] = noise(-1.0f, 1.0f) * gauss(64.0f, x);
 	}
 }
 
