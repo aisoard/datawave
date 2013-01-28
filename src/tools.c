@@ -13,12 +13,15 @@ float gauss(float a, float x)
 }
 
 /* Amplify near -1 and 1 values, reduce near 0 values */
-float filter(float s, float p, float x)
+float filter(float s, float x)
 {
 	if(x*x < s*s)
-		return x/p;
+		return 0.0f;
 	else
-		return x > 0.0f ? 1.0f + (x-1.0f)/p : -1.0f + (x+1.0f)/p;
+		if(x > 0.0f)
+			return 1.0f;
+		else
+			return -1.0f;
 }
 
 /* Noise procedure with amplitude between min and max */
@@ -50,7 +53,7 @@ void correlation(float * input_time, fftwf_complex * kernel_freq, float * output
 	fftwf_execute(fft_wave_time_to_freq);
 
 	for(int i = 0; i < N/2+1; i++)
-		wave_freq[i] = conjf(wave_freq[i]) * kernel_freq[i] / N;
+		wave_freq[i] = wave_freq[i] * conjf(kernel_freq[i]) / N;
 
 	fftwf_execute(fft_wave_freq_to_time);
 
@@ -66,7 +69,7 @@ void autocorrelation(float * data_time, float * data_auto)
 
 	for(int i = 0; i < N/2+1; i++) {
 		fftwf_complex coef = wave_freq[i];
-		wave_freq[i] = conjf(coef) * coef / N;
+		wave_freq[i] = coef * conjf(coef) / N;
 	}
 
 	fftwf_execute(fft_wave_freq_to_time);
@@ -91,18 +94,18 @@ void amplify(float * data_time, float a)
 }
 
 /* Normalize data */
-void normalize(float * data_time)
+float normalize(float * data_time)
 {
-	memcpy(wave_time, data_time, sizeof(float) * N);
+	float max = 0.0f;
 
-	fftwf_execute(fft_wave_time_to_freq);
-
-	for(int i = 0; i < N/2+1; i++) {
-		fftwf_complex coef = wave_freq[i];
-		wave_freq[i] = conjf(coef) * coef / N;
+	for(int i = 0; i < N; i++) {
+		float data = data_time[i];
+		max = MAX(max, data * data);
 	}
 
-	fftwf_execute(fft_wave_freq_to_time);
+	max = sqrt(max);
 
-	amplify(data_time, sqrt(1.0f/wave_time[0]));
+	amplify(data_time, 1.0f/max);
+
+	return max;
 }

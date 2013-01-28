@@ -4,9 +4,10 @@
 void analyse(float * in_data_time, float * out_data_time)
 {
 	for(int i = 0; i < N; i++)
-		out_data_time[i] = filter(0.9375f, 16.0f, in_data_time[i]);
+		out_data_time[i] = filter(0.9375f, in_data_time[i]);
 
 	out_data_time[0] = 1.0f;
+	out_data_time[N/2] = 1.0f;
 }
 
 void init(void * arg)
@@ -97,7 +98,7 @@ int exec(jack_nframes_t n, void * arg)
 	jack_default_audio_sample_t * out_right = (jack_default_audio_sample_t *) jack_port_get_buffer(output_port_right, n);
 
 	/* Copy the input data at the current phase and send output data at the opposed phase
-	 * Suppose N multiple of n
+	 * FIXME Suppose N multiple of n
 	 */
 	for(i = 0; i < n; i++) {
 		int phase_in = phase + i;

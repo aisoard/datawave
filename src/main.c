@@ -67,6 +67,7 @@ int main(int argc, char * argv[])
 	if(jack_activate(client))
 		errx(1, "Cannot activate client");
 
+	if(0) {
 	/* Search for physical ports */
 	const char ** ports = NULL;
 
@@ -105,6 +106,7 @@ int main(int argc, char * argv[])
 	}
 
 	jack_free(ports);
+	}
 
 	/* Signal capture */
 	signal(SIGQUIT, signal_handler);

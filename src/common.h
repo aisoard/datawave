@@ -60,7 +60,7 @@ int exec(jack_nframes_t n, void * arg);
 void fini(void * arg);
 
 /* Math tools */
-float filter(float s, float p, float x);
+float filter(float s, float x);
 float sine(float l, float x);
 float gauss(float a, float x);
 float noise(float min, float max);
@@ -69,6 +69,6 @@ void correlation(float * input_time, fftwf_complex * kernel_freq, float * output
 void autocorrelation(float * data_time, float * data_auto);
 void pulse(float * data_time);
 void amplify(float * data_time, float a);
-void normalize(float * data_time);
+float normalize(float * data_time);
 
 #endif // COMMON_H
