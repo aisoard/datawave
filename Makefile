@@ -5,7 +5,7 @@ PTHREAD_LIBS=-lpthread
 JACK_LIBS=`pkg-config --cflags --libs jack`
 FFTW_LIBS=`pkg-config --cflags --libs fftw3f`
 
-LIBS=${PTHREAD_LIBS}${JACK_LIBS}${FFTW_LIBS}
+LIBS=${PTHREAD_LIBS} ${JACK_LIBS} ${FFTW_LIBS}
 
 all: datawave | bin
 
