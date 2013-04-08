@@ -1,25 +1,26 @@
 .PHONY: all clean reset
 
-OPTS=--std=c11 -O3 -Wall -g
-PTHREAD_LIBS=-lpthread
-JACK_LIBS=`pkg-config --cflags --libs jack`
-FFTW_LIBS=`pkg-config --cflags --libs fftw3f`
+CC=clang
 
-LIBS=${PTHREAD_LIBS} ${JACK_LIBS} ${FFTW_LIBS}
+CFLAGS+=-O3 -Wall -g
+
+LDFLAGS+=-lpthread
+LDFLAGS+=`pkg-config --cflags --libs jack`
+LDFLAGS+=`pkg-config --cflags --libs fftw3f`
 
 all: datawave | bin
 
 bin/main.o: src/main.c src/common.h | bin
-	gcc -c -o $@ ${OPTS} $<
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 bin/tools.o: src/tools.c src/common.h | bin
-	gcc -c -o $@ ${OPTS} $<
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 bin/datawave.o: src/datawave.c src/common.h | bin
-	gcc -c -o $@ ${OPTS} $<
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 datawave: bin/main.o bin/tools.o bin/datawave.o | bin
-	gcc -o $@ ${OPTS} ${LIBS} $^
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 bin:
 	mkdir bin
